@@ -16,3 +16,5 @@ uploads/
 .idea/
 
 *.log
+test_chroma.py
+test_chroma_search.py
