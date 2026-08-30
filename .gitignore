@@ -18,3 +18,4 @@ uploads/
 *.log
 test_chroma.py
 test_chroma_search.py
+test_chroma_debug.py
