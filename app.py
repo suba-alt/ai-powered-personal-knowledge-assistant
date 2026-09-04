@@ -5,7 +5,8 @@ from flask_jwt_extended import JWTManager
 from config import (
     SQLALCHEMY_DATABASE_URI,
     SQLALCHEMY_TRACK_MODIFICATIONS,
-    JWT_SECRET_KEY
+    JWT_SECRET_KEY,
+    CA_PATH
 )
 
 from db import db
@@ -15,7 +16,13 @@ from routes.notes import notes_bp
 from routes.files import files_bp
 from routes.search import search_bp
 from routes.ask import ask_bp
+from routes.ai_queries import ai_queries_bp
+from routes.chat_history import chat_history_bp
 
+
+# =========================================================
+# CREATE FLASK APP
+# =========================================================
 
 app = Flask(__name__)
 
@@ -26,6 +33,13 @@ app = Flask(__name__)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = SQLALCHEMY_DATABASE_URI
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = SQLALCHEMY_TRACK_MODIFICATIONS
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "connect_args": {
+        "ssl_verify_cert": True,
+        "ssl_verify_identity": True,
+        "ssl_ca": CA_PATH
+    }
+}
 
 
 # =========================================================
@@ -71,8 +85,6 @@ app.config["SWAGGER"] = {
 
     },
 
-    # IMPORTANT:
-    # Custom JavaScript sorting is placed here.
     "ui_params_text": """
     {
         "operationsSorter": function(a, b) {
@@ -93,8 +105,15 @@ app.config["SWAGGER"] = {
                 "GET /files/{document_id}/text": 10,
                 "GET /files/{document_id}/chunks": 11,
                 "POST /files/{document_id}/embed": 12,
-                "DELETE /files/{document_id}/vector": 13
+                "DELETE /files/{document_id}/vector": 13,
 
+                "GET /search": 14,
+
+                "POST /ask": 15,
+
+                "GET /ai-queries": 16,
+
+                "GET /chat-history": 17
 
             };
 
@@ -123,7 +142,9 @@ app.config["SWAGGER"] = {
                 "Notes": 2,
                 "Files": 3,
                 "Search": 4,
-                "Ask": 5
+                "Ask": 5,
+                "AI Queries": 6,
+                "Chat History": 7
 
             };
 
@@ -149,18 +170,22 @@ swagger_config = {
     "specs": [
 
         {
+
             "endpoint": "swagger",
 
             "route": "/swagger.json",
 
-            # Only show Authentication + Notes
             "rule_filter": lambda rule: (
+
                 rule.rule.startswith("/auth")
                 or rule.rule == "/notes"
                 or rule.rule.startswith("/notes/")
                 or rule.rule.startswith("/files/")
                 or rule.rule.startswith("/search")
                 or rule.rule.startswith("/ask")
+                or rule.rule.startswith("/ai-queries")
+                or rule.rule.startswith("/chat-history")
+
             ),
 
             "model_filter": lambda tag: True,
@@ -170,6 +195,7 @@ swagger_config = {
             "swagger_ui": True,
 
             "specs_route": "/apidocs/"
+
         }
 
     ],
@@ -220,29 +246,59 @@ swagger_template = {
     "tags": [
 
         {
+
             "name": "Authentication",
 
             "description": "User authentication APIs"
+
         },
 
         {
+
             "name": "Notes",
 
             "description": "Notes management APIs"
+
         },
+
         {
+
             "name": "Files",
 
             "description": "File upload and document processing APIs"
+
         },
+
         {
+
             "name": "Search",
 
             "description": "Semantic document search APIs"
+
         },
+
         {
+
             "name": "Ask",
+
             "description": "AI question answering using RAG"
+
+        },
+
+        {
+
+            "name": "AI Queries",
+
+            "description": "Previously asked AI questions"
+
+        },
+
+        {
+
+            "name": "Chat History",
+
+            "description": "AI responses and confidence scores"
+
         }
 
     ]
@@ -275,6 +331,10 @@ app.register_blueprint(search_bp)
 
 app.register_blueprint(ask_bp)
 
+app.register_blueprint(ai_queries_bp)
+
+app.register_blueprint(chat_history_bp)
+
 
 # =========================================================
 # HOME
@@ -284,7 +344,9 @@ app.register_blueprint(ask_bp)
 def home():
 
     return jsonify({
+
         "message": "AI Knowledge Assistant Backend is running"
+
     })
 
 
@@ -304,13 +366,17 @@ def test_db():
         )
 
         return jsonify({
+
             "message": "Database connected successfully"
+
         })
 
     except Exception as e:
 
         return jsonify({
+
             "error": str(e)
+
         }), 500
 
 
@@ -330,9 +396,11 @@ def show_routes():
             "endpoint": rule.endpoint,
 
             "methods": sorted(
+
                 method
                 for method in rule.methods
                 if method not in ["HEAD", "OPTIONS"]
+
             ),
 
             "path": str(rule)

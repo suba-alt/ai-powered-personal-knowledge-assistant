@@ -11,27 +11,33 @@ load_dotenv()
 
 
 # ============================================================
-# MYSQL CONFIGURATION
+# TIDB CONFIGURATION
 # ============================================================
 
-MYSQL_HOST = os.getenv(
-    "MYSQL_HOST",
-    "localhost"
+TIDB_HOST = os.getenv(
+    "TIDB_HOST"
 )
 
-MYSQL_USER = os.getenv(
-    "MYSQL_USER",
-    "root"
+TIDB_PORT = int(os.getenv(
+    "TIDB_PORT",
+    "4000"
+))
+
+TIDB_USER = os.getenv(
+    "TIDB_USER"
 )
 
-MYSQL_PASSWORD = os.getenv(
-    "MYSQL_PASSWORD",
-    ""
+TIDB_PASSWORD = os.getenv(
+    "TIDB_PASSWORD"
 )
 
-MYSQL_DB = os.getenv(
-    "MYSQL_DB",
+TIDB_DB_NAME = os.getenv(
+    "TIDB_DB_NAME",
     "ai_knowledge_db"
+)
+
+CA_PATH = os.getenv(
+    "CA_PATH"
 )
 
 
@@ -41,10 +47,11 @@ MYSQL_DB = os.getenv(
 
 SQLALCHEMY_DATABASE_URI = (
     f"mysql+pymysql://"
-    f"{MYSQL_USER}:"
-    f"{MYSQL_PASSWORD}@"
-    f"{MYSQL_HOST}/"
-    f"{MYSQL_DB}"
+    f"{TIDB_USER}:"
+    f"{TIDB_PASSWORD}@"
+    f"{TIDB_HOST}:"
+    f"{TIDB_PORT}/"
+    f"{TIDB_DB_NAME}"
 )
 
 

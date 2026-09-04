@@ -4,6 +4,9 @@ from flask import (
     jsonify
 )
 
+from model import AIQuery, ChatHistory
+from db import db
+
 from flask_jwt_extended import (
     jwt_required,
     get_jwt_identity
@@ -52,7 +55,8 @@ ask_bp = Blueprint(
     "description":
         "Ask a question and generate an AI answer "
         "using relevant information from the user's "
-        "uploaded documents.",
+        "uploaded documents. The question and AI response "
+        "are stored in the AI query and chat history tables.",
 
     "operationId":
         "askQuestion",
@@ -133,6 +137,7 @@ ask_bp = Blueprint(
 
             "examples": {
                 "application/json": {
+
                     "message":
                         "Question answered successfully",
 
@@ -142,6 +147,9 @@ ask_bp = Blueprint(
                     "answer":
                         "Machine learning is a method of "
                         "teaching computers to learn from data.",
+
+                    "confidence_score":
+                        87.50,
 
                     "sources": [
                         {
@@ -162,7 +170,10 @@ ask_bp = Blueprint(
                                 "0",
 
                             "distance":
-                                0.245
+                                0.125,
+
+                            "relevance_percentage":
+                                100.0
                         }
                     ]
                 }
@@ -265,7 +276,10 @@ def ask():
                 top_k
             )
 
-        except (TypeError, ValueError):
+        except (
+            TypeError,
+            ValueError
+        ):
 
             return jsonify({
 
@@ -274,6 +288,10 @@ def ask():
 
             }), 400
 
+
+        # ----------------------------------------------------
+        # VALIDATE TOP K
+        # ----------------------------------------------------
 
         if top_k <= 0:
 
@@ -327,6 +345,9 @@ def ask():
                     "I could not find this information "
                     "in your documents.",
 
+                "confidence_score":
+                    0.00,
+
                 "sources":
                     []
 
@@ -377,6 +398,9 @@ def ask():
                     "I could not find enough information "
                     "in your documents.",
 
+                "confidence_score":
+                    0.00,
+
                 "sources":
                     search_results
 
@@ -396,6 +420,130 @@ def ask():
         )
 
 
+        # ====================================================
+        # CALCULATE CONFIDENCE SCORE
+        # ====================================================
+        #
+        # search_service.py already calculates:
+        #
+        # relevance_percentage
+        #
+        # Therefore, use that value instead of converting
+        # ChromaDB distance directly.
+        #
+        # This gives us a retrieval/context relevance score.
+        # ====================================================
+
+        relevance_scores = []
+
+
+        for result in search_results:
+
+            relevance = result.get(
+                "relevance_percentage"
+            )
+
+
+            if relevance is not None:
+
+                try:
+
+                    relevance_scores.append(
+                        float(relevance)
+                    )
+
+                except (
+                    TypeError,
+                    ValueError
+                ):
+
+                    pass
+
+
+        if relevance_scores:
+
+            confidence_score = (
+                sum(relevance_scores)
+                /
+                len(relevance_scores)
+            )
+
+        else:
+
+            confidence_score = 0.00
+
+
+        # ----------------------------------------------------
+        # KEEP SCORE BETWEEN 0 AND 100
+        # ----------------------------------------------------
+
+        confidence_score = max(
+            0.00,
+            min(
+                100.00,
+                confidence_score
+            )
+        )
+
+
+        confidence_score = round(
+            confidence_score,
+            2
+        )
+
+
+        # ----------------------------------------------------
+        # SAVE AI QUERY
+        # ----------------------------------------------------
+
+        ai_query = AIQuery(
+
+            user_id=user_id,
+
+            question=question
+
+        )
+
+
+        db.session.add(
+            ai_query
+        )
+
+
+        # ----------------------------------------------------
+        # GET GENERATED QUERY ID
+        # ----------------------------------------------------
+
+        db.session.flush()
+
+
+        # ----------------------------------------------------
+        # SAVE CHAT HISTORY
+        # ----------------------------------------------------
+
+        chat_history = ChatHistory(
+
+            query_id=ai_query.id,
+
+            ai_response=answer,
+
+            confidence_score=confidence_score
+
+        )
+
+
+        db.session.add(
+            chat_history
+        )
+
+
+        # ----------------------------------------------------
+        # COMMIT DATABASE CHANGES
+        # ----------------------------------------------------
+
+        db.session.commit()
+
+
         # ----------------------------------------------------
         # RETURN RESPONSE
         # ----------------------------------------------------
@@ -411,6 +559,9 @@ def ask():
             "answer":
                 answer,
 
+            "confidence_score":
+                confidence_score,
+
             "sources":
                 search_results
 
@@ -423,6 +574,8 @@ def ask():
 
     except ValueError as e:
 
+        db.session.rollback()
+
         return jsonify({
 
             "message":
@@ -432,6 +585,8 @@ def ask():
 
 
     except Exception as e:
+
+        db.session.rollback()
 
         return jsonify({
 

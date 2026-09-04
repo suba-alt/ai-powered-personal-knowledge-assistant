@@ -1,9 +1,9 @@
 from db import db
 
 
-# =========================
+# ============================================================
 # USER MODEL
-# =========================
+# ============================================================
 
 class User(db.Model):
 
@@ -30,10 +30,17 @@ class User(db.Model):
         nullable=False
     )
 
+    # Relationship with AIQuery
+    queries = db.relationship(
+        "AIQuery",
+        back_populates="user",
+        lazy=True
+    )
 
-# =========================
+
+# ============================================================
 # NOTES MODEL
-# =========================
+# ============================================================
 
 class Note(db.Model):
 
@@ -74,9 +81,9 @@ class Note(db.Model):
     )
 
 
-# =========================
+# ============================================================
 # DOCUMENT MODEL
-# =========================
+# ============================================================
 
 class Document(db.Model):
 
@@ -112,4 +119,90 @@ class Document(db.Model):
         db.TIMESTAMP,
         nullable=False,
         server_default=db.func.current_timestamp()
+    )
+
+
+# ============================================================
+# AI QUERIES MODEL
+# ============================================================
+
+class AIQuery(db.Model):
+
+    __tablename__ = "ai_queries"
+
+    id = db.Column(
+        db.Integer,
+        primary_key=True
+    )
+
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id"),
+        nullable=True
+    )
+
+    question = db.Column(
+        db.Text,
+        nullable=True
+    )
+
+    created_at = db.Column(
+        db.TIMESTAMP,
+        nullable=False,
+        server_default=db.func.current_timestamp()
+    )
+
+    # Relationship with User
+    user = db.relationship(
+        "User",
+        back_populates="queries"
+    )
+
+    # Relationship with ChatHistory
+    chat_history = db.relationship(
+        "ChatHistory",
+        back_populates="query",
+        lazy=True
+    )
+
+
+# ============================================================
+# CHAT HISTORY MODEL
+# ============================================================
+
+class ChatHistory(db.Model):
+
+    __tablename__ = "chat_history"
+
+    id = db.Column(
+        db.Integer,
+        primary_key=True
+    )
+
+    query_id = db.Column(
+        db.Integer,
+        db.ForeignKey("ai_queries.id"),
+        nullable=True
+    )
+
+    ai_response = db.Column(
+        db.Text,
+        nullable=True
+    )
+
+    confidence_score = db.Column(
+        db.Numeric(5, 2),
+        nullable=True
+    )
+
+    created_at = db.Column(
+        db.TIMESTAMP,
+        nullable=False,
+        server_default=db.func.current_timestamp()
+    )
+
+    # Relationship with AIQuery
+    query = db.relationship(
+        "AIQuery",
+        back_populates="chat_history"
     )
