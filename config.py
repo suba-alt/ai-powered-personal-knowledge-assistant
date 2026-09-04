@@ -18,10 +18,12 @@ TIDB_HOST = os.getenv(
     "TIDB_HOST"
 )
 
-TIDB_PORT = int(os.getenv(
-    "TIDB_PORT",
-    "4000"
-))
+TIDB_PORT = int(
+    os.getenv(
+        "TIDB_PORT",
+        "4000"
+    )
+)
 
 TIDB_USER = os.getenv(
     "TIDB_USER"
@@ -56,14 +58,29 @@ SQLALCHEMY_DATABASE_URI = (
 
 
 # ============================================================
-# SQLALCHEMY
+# SQLALCHEMY CONFIGURATION
 # ============================================================
 
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 
 # ============================================================
-# JWT
+# TIDB SSL + CONNECTION POOL
+# ============================================================
+
+SQLALCHEMY_ENGINE_OPTIONS = {
+    "pool_pre_ping": True,
+    "pool_recycle": 300,
+    "connect_args": {
+        "ssl_verify_cert": True,
+        "ssl_verify_identity": True,
+        "ssl_ca": CA_PATH
+    }
+}
+
+
+# ============================================================
+# JWT CONFIGURATION
 # ============================================================
 
 JWT_SECRET_KEY = os.getenv(
@@ -72,7 +89,7 @@ JWT_SECRET_KEY = os.getenv(
 
 
 # ============================================================
-# GEMINI
+# GEMINI CONFIGURATION
 # ============================================================
 
 GEMINI_API_KEY = os.getenv(
