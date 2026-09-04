@@ -9,6 +9,8 @@ from flask_jwt_extended import (
     get_jwt_identity
 )
 
+from flasgger import swag_from
+
 from db import db
 from model import Document
 
@@ -34,8 +36,45 @@ files_bp = Blueprint(
 
 
 # ==================================================
+# SUPPORTED FILE TYPES
+# ==================================================
+
+ALLOWED_FILE_TYPES = [
+
+    "pdf",
+    "doc",
+    "docx",
+
+    "jpg",
+    "jpeg",
+    "png",
+    "gif",
+    "webp",
+    "bmp",
+    "tiff"
+
+]
+
+
+# ==================================================
+# IMAGE FILE TYPES
+# ==================================================
+
+IMAGE_FILE_TYPES = [
+
+    "jpg",
+    "jpeg",
+    "png",
+    "gif",
+    "webp",
+    "bmp",
+    "tiff"
+
+]
+
+
+# ==================================================
 # 1. UPLOAD FILE
-#
 # POST /files/upload
 # ==================================================
 
@@ -44,6 +83,104 @@ files_bp = Blueprint(
     methods=["POST"]
 )
 @jwt_required()
+@swag_from({
+
+    "tags": [
+        "Files"
+    ],
+
+    "summary": "Upload File",
+
+    "description": (
+        "Upload a PDF, DOC, DOCX, "
+        "or image file."
+    ),
+
+    "operationId": "uploadFile",
+
+    "consumes": [
+        "multipart/form-data"
+    ],
+
+    "produces": [
+        "application/json"
+    ],
+
+    "security": [
+        {
+            "Bearer": []
+        }
+    ],
+
+    "parameters": [
+
+        {
+            "name": "file",
+
+            "in": "formData",
+
+            "type": "file",
+
+            "required": True,
+
+            "description": (
+                "Select a PDF, DOC, DOCX, JPG, JPEG, "
+                "PNG, GIF, WEBP, BMP, or TIFF file."
+            )
+        }
+
+    ],
+
+    "responses": {
+
+        "201": {
+
+            "description":
+                "File uploaded successfully",
+
+            "examples": {
+
+                "application/json": {
+
+                    "message":
+                        "File uploaded successfully",
+
+                    "document_id": 1,
+
+                    "file_name":
+                        "python_notes.pdf",
+
+                    "file_type":
+                        "pdf",
+
+                    "file_category":
+                        "pdf",
+
+                    "user_id": 1
+                }
+            }
+        },
+
+        "400": {
+
+            "description":
+                "No file, empty file, or unsupported file type"
+        },
+
+        "401": {
+
+            "description":
+                "Missing or invalid JWT token"
+        },
+
+        "500": {
+
+            "description":
+                "File upload failed"
+        }
+    }
+
+})
 def upload_file():
 
     # ----------------------------------------------
@@ -55,7 +192,7 @@ def upload_file():
     )
 
     # ----------------------------------------------
-    # Check whether file exists
+    # Check file
     # ----------------------------------------------
 
     if "file" not in request.files:
@@ -106,7 +243,7 @@ def upload_file():
         file_name = file.filename
 
         # ------------------------------------------
-        # Get extension
+        # File extension
         # ------------------------------------------
 
         file_type = ""
@@ -120,28 +257,46 @@ def upload_file():
             )
 
         # ------------------------------------------
-        # Allow only supported file types
+        # Validate file type
         # ------------------------------------------
 
-        allowed_types = [
-            "pdf",
-            "docx"
-        ]
-
-        if file_type not in allowed_types:
+        if file_type not in ALLOWED_FILE_TYPES:
 
             return jsonify({
 
                 "message":
                     "Unsupported file type",
 
+                "file_type":
+                    file_type,
+
                 "allowed_types":
-                    allowed_types
+                    ALLOWED_FILE_TYPES
 
             }), 400
 
         # ------------------------------------------
-        # Create document
+        # Detect category
+        # ------------------------------------------
+
+        if file_type in IMAGE_FILE_TYPES:
+
+            file_category = "image"
+
+        elif file_type == "pdf":
+
+            file_category = "pdf"
+
+        elif file_type in ["doc", "docx"]:
+
+            file_category = "document"
+
+        else:
+
+            file_category = "unknown"
+
+        # ------------------------------------------
+        # Create Document
         # ------------------------------------------
 
         document = Document(
@@ -160,9 +315,7 @@ def upload_file():
         # Save to MySQL
         # ------------------------------------------
 
-        db.session.add(
-            document
-        )
+        db.session.add(document)
 
         db.session.commit()
 
@@ -183,6 +336,9 @@ def upload_file():
 
             "file_type":
                 document.file_type,
+
+            "file_category":
+                file_category,
 
             "user_id":
                 document.user_id
@@ -206,7 +362,6 @@ def upload_file():
 
 # ==================================================
 # 2. GET EXTRACTED TEXT
-#
 # GET /files/<document_id>/text
 # ==================================================
 
@@ -215,21 +370,80 @@ def upload_file():
     methods=["GET"]
 )
 @jwt_required()
-def get_document_text(
-    document_id
-):
+@swag_from({
 
-    # ----------------------------------------------
-    # Get logged-in user
-    # ----------------------------------------------
+    "tags": [
+        "Files"
+    ],
+
+    "summary": "Get Extracted Text",
+
+    "description": (
+        "Extract text/content from the uploaded file."
+    ),
+
+    "operationId": "getDocumentText",
+
+    "produces": [
+        "application/json"
+    ],
+
+    "security": [
+        {
+            "Bearer": []
+        }
+    ],
+
+    "parameters": [
+
+        {
+            "name": "document_id",
+
+            "in": "path",
+
+            "type": "integer",
+
+            "required": True,
+
+            "example": 1
+        }
+
+    ],
+
+    "responses": {
+
+        "200": {
+            "description":
+                "Text extracted successfully"
+        },
+
+        "400": {
+            "description":
+                "No text found in file"
+        },
+
+        "401": {
+            "description":
+                "Missing or invalid JWT token"
+        },
+
+        "404": {
+            "description":
+                "Document not found"
+        },
+
+        "500": {
+            "description":
+                "Text extraction failed"
+        }
+    }
+
+})
+def get_document_text(document_id):
 
     user_id = int(
         get_jwt_identity()
     )
-
-    # ----------------------------------------------
-    # Find document belonging to user
-    # ----------------------------------------------
 
     document = Document.query.filter_by(
 
@@ -250,10 +464,6 @@ def get_document_text(
 
     try:
 
-        # ------------------------------------------
-        # Extract text
-        # ------------------------------------------
-
         text = extract_text(
 
             document.file_data,
@@ -262,25 +472,20 @@ def get_document_text(
 
         )
 
-        # ------------------------------------------
-        # Check extracted text
-        # ------------------------------------------
-
         if not text:
 
             return jsonify({
 
                 "message":
-                    "No text found in document",
+                    "No text found in file",
 
                 "document_id":
-                    document.id
+                    document.id,
+
+                "file_type":
+                    document.file_type
 
             }), 400
-
-        # ------------------------------------------
-        # Return text
-        # ------------------------------------------
 
         return jsonify({
 
@@ -316,7 +521,6 @@ def get_document_text(
 
 # ==================================================
 # 3. GET DOCUMENT CHUNKS
-#
 # GET /files/<document_id>/chunks
 # ==================================================
 
@@ -325,21 +529,81 @@ def get_document_text(
     methods=["GET"]
 )
 @jwt_required()
-def get_document_chunks(
-    document_id
-):
+@swag_from({
 
-    # ----------------------------------------------
-    # Get logged-in user
-    # ----------------------------------------------
+    "tags": [
+        "Files"
+    ],
+
+    "summary": "Get Document Chunks",
+
+    "description": (
+        "Extract text and split the document "
+        "into chunks."
+    ),
+
+    "operationId": "getDocumentChunks",
+
+    "produces": [
+        "application/json"
+    ],
+
+    "security": [
+        {
+            "Bearer": []
+        }
+    ],
+
+    "parameters": [
+
+        {
+            "name": "document_id",
+
+            "in": "path",
+
+            "type": "integer",
+
+            "required": True,
+
+            "example": 1
+        }
+
+    ],
+
+    "responses": {
+
+        "200": {
+            "description":
+                "Document chunks created successfully"
+        },
+
+        "400": {
+            "description":
+                "No text found in file"
+        },
+
+        "401": {
+            "description":
+                "Missing or invalid JWT token"
+        },
+
+        "404": {
+            "description":
+                "Document not found"
+        },
+
+        "500": {
+            "description":
+                "Chunk creation failed"
+        }
+    }
+
+})
+def get_document_chunks(document_id):
 
     user_id = int(
         get_jwt_identity()
     )
-
-    # ----------------------------------------------
-    # Check document
-    # ----------------------------------------------
 
     document = Document.query.filter_by(
 
@@ -360,10 +624,6 @@ def get_document_chunks(
 
     try:
 
-        # ------------------------------------------
-        # Extract text
-        # ------------------------------------------
-
         text = extract_text(
 
             document.file_data,
@@ -377,25 +637,15 @@ def get_document_chunks(
             return jsonify({
 
                 "message":
-                    "No text found in document"
+                    "No text found in file"
 
             }), 400
-
-        # ------------------------------------------
-        # Create chunks
-        # ------------------------------------------
 
         from services.chroma_service import (
             create_chunks
         )
 
-        chunks = create_chunks(
-            text
-        )
-
-        # ------------------------------------------
-        # Return chunks
-        # ------------------------------------------
+        chunks = create_chunks(text)
 
         return jsonify({
 
@@ -407,6 +657,9 @@ def get_document_chunks(
 
             "file_name":
                 document.file_name,
+
+            "file_type":
+                document.file_type,
 
             "total_chunks":
                 len(chunks),
@@ -431,7 +684,6 @@ def get_document_chunks(
 
 # ==================================================
 # 4. EMBED DOCUMENT
-#
 # POST /files/<document_id>/embed
 # ==================================================
 
@@ -440,21 +692,81 @@ def get_document_chunks(
     methods=["POST"]
 )
 @jwt_required()
-def embed_document(
-    document_id
-):
+@swag_from({
 
-    # ----------------------------------------------
-    # Get logged-in user
-    # ----------------------------------------------
+    "tags": [
+        "Files"
+    ],
+
+    "summary": "Embed Document",
+
+    "description": (
+        "Extract the document text, create chunks, "
+        "and store embeddings in ChromaDB."
+    ),
+
+    "operationId": "embedDocument",
+
+    "produces": [
+        "application/json"
+    ],
+
+    "security": [
+        {
+            "Bearer": []
+        }
+    ],
+
+    "parameters": [
+
+        {
+            "name": "document_id",
+
+            "in": "path",
+
+            "type": "integer",
+
+            "required": True,
+
+            "example": 1
+        }
+
+    ],
+
+    "responses": {
+
+        "200": {
+            "description":
+                "Document embedded successfully"
+        },
+
+        "400": {
+            "description":
+                "No text found in file"
+        },
+
+        "401": {
+            "description":
+                "Missing or invalid JWT token"
+        },
+
+        "404": {
+            "description":
+                "Document not found"
+        },
+
+        "500": {
+            "description":
+                "Document embedding failed"
+        }
+    }
+
+})
+def embed_document(document_id):
 
     user_id = int(
         get_jwt_identity()
     )
-
-    # ----------------------------------------------
-    # Find document
-    # ----------------------------------------------
 
     document = Document.query.filter_by(
 
@@ -475,10 +787,6 @@ def embed_document(
 
     try:
 
-        # ------------------------------------------
-        # Extract text
-        # ------------------------------------------
-
         text = extract_text(
 
             document.file_data,
@@ -492,13 +800,9 @@ def embed_document(
             return jsonify({
 
                 "message":
-                    "No text found in document"
+                    "No text found in file"
 
             }), 400
-
-        # ------------------------------------------
-        # Send text to ChromaDB
-        # ------------------------------------------
 
         result = add_document(
 
@@ -512,10 +816,6 @@ def embed_document(
 
         )
 
-        # ------------------------------------------
-        # Return result
-        # ------------------------------------------
-
         return jsonify({
 
             "message":
@@ -526,6 +826,9 @@ def embed_document(
 
             "file_name":
                 document.file_name,
+
+            "file_type":
+                document.file_type,
 
             "chunks_stored":
                 result.get(
@@ -550,7 +853,6 @@ def embed_document(
 
 # ==================================================
 # 5. DELETE CHROMADB EMBEDDINGS
-#
 # DELETE /files/<document_id>/vector
 # ==================================================
 
@@ -559,21 +861,76 @@ def embed_document(
     methods=["DELETE"]
 )
 @jwt_required()
-def delete_document_vector(
-    document_id
-):
+@swag_from({
 
-    # ----------------------------------------------
-    # Get logged-in user
-    # ----------------------------------------------
+    "tags": [
+        "Files"
+    ],
+
+    "summary": "Delete Document Embeddings",
+
+    "description": (
+        "Delete the document embeddings "
+        "from ChromaDB."
+    ),
+
+    "operationId": "deleteDocumentVector",
+
+    "produces": [
+        "application/json"
+    ],
+
+    "security": [
+        {
+            "Bearer": []
+        }
+    ],
+
+    "parameters": [
+
+        {
+            "name": "document_id",
+
+            "in": "path",
+
+            "type": "integer",
+
+            "required": True,
+
+            "example": 1
+        }
+
+    ],
+
+    "responses": {
+
+        "200": {
+            "description":
+                "Document embeddings deleted successfully"
+        },
+
+        "401": {
+            "description":
+                "Missing or invalid JWT token"
+        },
+
+        "404": {
+            "description":
+                "Document not found"
+        },
+
+        "500": {
+            "description":
+                "Failed to delete embeddings"
+        }
+    }
+
+})
+def delete_document_vector(document_id):
 
     user_id = int(
         get_jwt_identity()
     )
-
-    # ----------------------------------------------
-    # Find document
-    # ----------------------------------------------
 
     document = Document.query.filter_by(
 
@@ -593,10 +950,6 @@ def delete_document_vector(
         }), 404
 
     try:
-
-        # ------------------------------------------
-        # Delete vectors from ChromaDB
-        # ------------------------------------------
 
         delete_document(
             document_id

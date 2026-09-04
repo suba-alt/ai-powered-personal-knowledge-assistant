@@ -1,7 +1,6 @@
-from flask import (
-    Flask,
-    jsonify
-)
+from flask import Flask, jsonify
+from flasgger import Swagger
+from flask_jwt_extended import JWTManager
 
 from config import (
     SQLALCHEMY_DATABASE_URI,
@@ -11,8 +10,6 @@ from config import (
 
 from db import db
 
-from flask_jwt_extended import JWTManager
-
 from routes.auth import auth_bp
 from routes.notes import notes_bp
 from routes.files import files_bp
@@ -20,142 +17,308 @@ from routes.search import search_bp
 from routes.ask import ask_bp
 
 
-# ============================================================
-# CREATE FLASK APPLICATION
-# ============================================================
-
-app = Flask(
-    __name__
-)
+app = Flask(__name__)
 
 
-# ============================================================
-# SQLALCHEMY CONFIGURATION
-# ============================================================
+# =========================================================
+# DATABASE CONFIGURATION
+# =========================================================
 
-app.config[
-    "SQLALCHEMY_DATABASE_URI"
-] = SQLALCHEMY_DATABASE_URI
-
-
-app.config[
-    "SQLALCHEMY_TRACK_MODIFICATIONS"
-] = SQLALCHEMY_TRACK_MODIFICATIONS
+app.config["SQLALCHEMY_DATABASE_URI"] = SQLALCHEMY_DATABASE_URI
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = SQLALCHEMY_TRACK_MODIFICATIONS
 
 
-# ============================================================
+# =========================================================
 # JWT CONFIGURATION
-# ============================================================
+# =========================================================
 
-app.config[
-    "JWT_SECRET_KEY"
-] = JWT_SECRET_KEY
+app.config["JWT_SECRET_KEY"] = JWT_SECRET_KEY
 
 
-# ============================================================
+# =========================================================
 # INITIALIZE DATABASE
-# ============================================================
+# =========================================================
 
-db.init_app(
-    app
-)
+db.init_app(app)
 
 
-# ============================================================
+# =========================================================
 # INITIALIZE JWT
-# ============================================================
+# =========================================================
 
-jwt = JWTManager(
-    app
+jwt = JWTManager(app)
+
+
+# =========================================================
+# SWAGGER CONFIGURATION
+# =========================================================
+
+app.config["SWAGGER"] = {
+
+    "title": "AI Knowledge Assistant API",
+
+    "description": "Backend API for AI Knowledge Assistant",
+
+    "version": "1.0.0",
+
+    "doc_expansion": "list",
+
+    "ui_params": {
+
+        "displayOperationId": True,
+
+        "persistAuthorization": True
+
+    },
+
+    # IMPORTANT:
+    # Custom JavaScript sorting is placed here.
+    "ui_params_text": """
+    {
+        "operationsSorter": function(a, b) {
+
+            var order = {
+
+                "POST /auth/register": 1,
+                "POST /auth/login": 2,
+                "GET /auth/profile": 3,
+
+                "POST /notes": 4,
+                "GET /notes": 5,
+                "GET /notes/{note_id}": 6,
+                "PUT /notes/{note_id}": 7,
+                "DELETE /notes/{note_id}": 8,
+
+                "POST /files/upload": 9,
+                "GET /files/{document_id}/text": 10,
+                "GET /files/{document_id}/chunks": 11,
+                "POST /files/{document_id}/embed": 12,
+                "DELETE /files/{document_id}/vector": 13
+
+
+            };
+
+            var keyA =
+                a.get("method").toUpperCase()
+                + " "
+                + a.get("path");
+
+            var keyB =
+                b.get("method").toUpperCase()
+                + " "
+                + b.get("path");
+
+            var positionA = order[keyA] || 999;
+
+            var positionB = order[keyB] || 999;
+
+            return positionA - positionB;
+        },
+
+        "tagsSorter": function(a, b) {
+
+            var order = {
+
+                "Authentication": 1,
+                "Notes": 2,
+                "Files": 3,
+                "Search": 4,
+                "Ask": 5
+
+            };
+
+            var positionA = order[a] || 999;
+
+            var positionB = order[b] || 999;
+
+            return positionA - positionB;
+        }
+    }
+    """
+}
+
+
+# =========================================================
+# SWAGGER SPEC CONFIGURATION
+# =========================================================
+
+swagger_config = {
+
+    "headers": [],
+
+    "specs": [
+
+        {
+            "endpoint": "swagger",
+
+            "route": "/swagger.json",
+
+            # Only show Authentication + Notes
+            "rule_filter": lambda rule: (
+                rule.rule.startswith("/auth")
+                or rule.rule == "/notes"
+                or rule.rule.startswith("/notes/")
+                or rule.rule.startswith("/files/")
+                or rule.rule.startswith("/search")
+                or rule.rule.startswith("/ask")
+            ),
+
+            "model_filter": lambda tag: True,
+
+            "static_url_path": "/flasgger_static",
+
+            "swagger_ui": True,
+
+            "specs_route": "/apidocs/"
+        }
+
+    ],
+
+    "static_url_path": "/flasgger_static",
+
+    "swagger_ui": True,
+
+    "specs_route": "/apidocs/"
+
+}
+
+
+# =========================================================
+# SWAGGER TEMPLATE
+# =========================================================
+
+swagger_template = {
+
+    "swagger": "2.0",
+
+    "info": {
+
+        "title": "AI Knowledge Assistant API",
+
+        "description": "Backend API for AI Knowledge Assistant",
+
+        "version": "1.0.0"
+
+    },
+
+    "securityDefinitions": {
+
+        "Bearer": {
+
+            "type": "apiKey",
+
+            "name": "Authorization",
+
+            "in": "header",
+
+            "description": "Enter: Bearer <your JWT token>"
+
+        }
+
+    },
+
+    "tags": [
+
+        {
+            "name": "Authentication",
+
+            "description": "User authentication APIs"
+        },
+
+        {
+            "name": "Notes",
+
+            "description": "Notes management APIs"
+        },
+        {
+            "name": "Files",
+
+            "description": "File upload and document processing APIs"
+        },
+        {
+            "name": "Search",
+
+            "description": "Semantic document search APIs"
+        },
+        {
+            "name": "Ask",
+            "description": "AI question answering using RAG"
+        }
+
+    ]
+
+}
+
+
+# =========================================================
+# INITIALIZE SWAGGER
+# =========================================================
+
+swagger = Swagger(
+    app,
+    config=swagger_config,
+    template=swagger_template
 )
 
 
-# ============================================================
+# =========================================================
 # REGISTER BLUEPRINTS
-# ============================================================
+# =========================================================
 
-app.register_blueprint(
-    auth_bp
-)
+app.register_blueprint(auth_bp)
 
-app.register_blueprint(
-    notes_bp
-)
+app.register_blueprint(notes_bp)
 
-app.register_blueprint(
-    files_bp
-)
+app.register_blueprint(files_bp)
 
-app.register_blueprint(
-    search_bp
-)
+app.register_blueprint(search_bp)
 
-app.register_blueprint(
-    ask_bp
-)
+app.register_blueprint(ask_bp)
 
 
-# ============================================================
+# =========================================================
 # HOME
-# ============================================================
+# =========================================================
 
-@app.route(
-    "/",
-    methods=["GET"]
-)
+@app.route("/", methods=["GET"])
 def home():
 
-    return (
-        "AI Knowledge Assistant "
-        "Backend is Running!"
-    )
+    return jsonify({
+        "message": "AI Knowledge Assistant Backend is running"
+    })
 
 
-# ============================================================
-# DATABASE TEST
-# ============================================================
+# =========================================================
+# TEST DATABASE
+# =========================================================
 
-@app.route(
-    "/test-db",
-    methods=["GET"]
-)
+@app.route("/test-db", methods=["GET"])
 def test_db():
 
     try:
 
+        from sqlalchemy import text
+
         db.session.execute(
-            db.text(
-                "SELECT 1"
-            )
+            text("SELECT 1")
         )
 
-        return (
-            "SQLAlchemy + MySQL "
-            "connection successful!"
-        )
-
+        return jsonify({
+            "message": "Database connected successfully"
+        })
 
     except Exception as e:
 
         return jsonify({
-
-            "message":
-                "Database connection failed",
-
-            "error":
-                str(e)
-
+            "error": str(e)
         }), 500
 
 
-# ============================================================
-# REGISTERED ROUTES TEST
-# ============================================================
+# =========================================================
+# SHOW ROUTES
+# =========================================================
 
-@app.route(
-    "/routes",
-    methods=["GET"]
-)
+@app.route("/routes", methods=["GET"])
 def show_routes():
 
     routes = []
@@ -164,57 +327,26 @@ def show_routes():
 
         routes.append({
 
-            "endpoint":
-                rule.endpoint,
+            "endpoint": rule.endpoint,
 
-            "url":
-                str(rule),
+            "methods": sorted(
+                method
+                for method in rule.methods
+                if method not in ["HEAD", "OPTIONS"]
+            ),
 
-            "methods":
-                sorted(
-                    rule.methods
-                )
+            "path": str(rule)
 
         })
 
-    return jsonify(
-        routes
-    ), 200
+    return jsonify(routes)
 
 
-# ============================================================
+# =========================================================
 # RUN APPLICATION
-# ============================================================
+# =========================================================
 
 if __name__ == "__main__":
-
-    print()
-    print(
-        "=========================================="
-    )
-
-    print(
-        "AI Knowledge Assistant Backend"
-    )
-
-    print(
-        "=========================================="
-    )
-
-    print()
-
-    print(
-        "Registered routes:"
-    )
-
-    for rule in app.url_map.iter_rules():
-
-        print(
-            f"{str(rule):35} "
-            f"{sorted(rule.methods)}"
-        )
-
-    print()
 
     app.run(
         host="127.0.0.1",
