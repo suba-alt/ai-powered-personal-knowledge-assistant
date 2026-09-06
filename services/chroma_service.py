@@ -38,7 +38,7 @@ client = chromadb.PersistentClient(
 # ==========================================
 # COLLECTION
 # ==========================================
-COLLECTION_NAME = "documents_gemini"
+COLLECTION_NAME = "documents_gemini_768"
 
 client = chromadb.PersistentClient(path=CHROMA_PATH)
 
@@ -100,7 +100,6 @@ def create_chunks(
 # ==========================================
 # ADD DOCUMENT TO CHROMADB
 # ==========================================
-
 def add_document(
     document_id,
     user_id,
@@ -108,22 +107,13 @@ def add_document(
     text
 ):
 
-    chunks = create_chunks(
-        text
-    )
+    chunks = create_chunks(text)
 
     if not chunks:
-
-        raise ValueError(
-            "No text chunks found"
-        )
+        raise ValueError("No text chunks found")
 
     ids = []
-
-    embeddings = []
-
     documents = []
-
     metadatas = []
 
     for index, chunk in enumerate(chunks):
@@ -133,58 +123,30 @@ def add_document(
             f"chunk_{index}"
         )
 
-        embedding = generate_embedding(
-            chunk
-        )
+        ids.append(chunk_id)
 
-        ids.append(
-            chunk_id
-        )
-
-        embeddings.append(
-            embedding
-        )
-
-        documents.append(
-            chunk
-        )
+        documents.append(chunk)
 
         metadatas.append({
-
-            "document_id":
-                str(document_id),
-
-            "user_id":
-                str(user_id),
-
-            "file_name":
-                file_name,
-
-            "chunk_id":
-                str(index)
-
+            "document_id": str(document_id),
+            "user_id": str(user_id),
+            "file_name": file_name,
+            "chunk_id": str(index)
         })
 
+    # Generate ALL embeddings in one request
+    embeddings = generate_embedding(chunks)
+
     collection.upsert(
-
         ids=ids,
-
         embeddings=embeddings,
-
         documents=documents,
-
         metadatas=metadatas
-
     )
 
     return {
-
-        "document_id":
-            document_id,
-
-        "chunks_stored":
-            len(chunks)
-
+        "document_id": document_id,
+        "chunks_stored": len(chunks)
     }
 
 
