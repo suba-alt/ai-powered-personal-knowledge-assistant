@@ -40,11 +40,9 @@ files_bp = Blueprint(
 # ==================================================
 
 ALLOWED_FILE_TYPES = [
-
     "pdf",
     "doc",
     "docx",
-
     "jpg",
     "jpeg",
     "png",
@@ -52,7 +50,6 @@ ALLOWED_FILE_TYPES = [
     "webp",
     "bmp",
     "tiff"
-
 ]
 
 
@@ -61,7 +58,6 @@ ALLOWED_FILE_TYPES = [
 # ==================================================
 
 IMAGE_FILE_TYPES = [
-
     "jpg",
     "jpeg",
     "png",
@@ -69,7 +65,6 @@ IMAGE_FILE_TYPES = [
     "webp",
     "bmp",
     "tiff"
-
 ]
 
 
@@ -116,13 +111,9 @@ IMAGE_FILE_TYPES = [
 
         {
             "name": "file",
-
             "in": "formData",
-
             "type": "file",
-
             "required": True,
-
             "description": (
                 "Select a PDF, DOC, DOCX, JPG, JPEG, "
                 "PNG, GIF, WEBP, BMP, or TIFF file."
@@ -162,19 +153,16 @@ IMAGE_FILE_TYPES = [
         },
 
         "400": {
-
             "description":
                 "No file, empty file, or unsupported file type"
         },
 
         "401": {
-
             "description":
                 "Missing or invalid JWT token"
         },
 
         "500": {
-
             "description":
                 "File upload failed"
         }
@@ -198,10 +186,8 @@ def upload_file():
     if "file" not in request.files:
 
         return jsonify({
-
             "message":
                 "No file provided"
-
         }), 400
 
     file = request.files["file"]
@@ -213,10 +199,8 @@ def upload_file():
     if not file.filename:
 
         return jsonify({
-
             "message":
                 "File name is required"
-
         }), 400
 
     try:
@@ -230,10 +214,8 @@ def upload_file():
         if not file_data:
 
             return jsonify({
-
                 "message":
                     "File is empty"
-
             }), 400
 
         # ------------------------------------------
@@ -312,7 +294,7 @@ def upload_file():
         )
 
         # ------------------------------------------
-        # Save to MySQL
+        # Save to MySQL / TiDB
         # ------------------------------------------
 
         db.session.add(document)
@@ -398,13 +380,9 @@ def upload_file():
 
         {
             "name": "document_id",
-
             "in": "path",
-
             "type": "integer",
-
             "required": True,
-
             "example": 1
         }
 
@@ -456,10 +434,8 @@ def get_document_text(document_id):
     if not document:
 
         return jsonify({
-
             "message":
                 "Document not found"
-
         }), 404
 
     try:
@@ -558,13 +534,9 @@ def get_document_text(document_id):
 
         {
             "name": "document_id",
-
             "in": "path",
-
             "type": "integer",
-
             "required": True,
-
             "example": 1
         }
 
@@ -616,10 +588,8 @@ def get_document_chunks(document_id):
     if not document:
 
         return jsonify({
-
             "message":
                 "Document not found"
-
         }), 404
 
     try:
@@ -635,10 +605,8 @@ def get_document_chunks(document_id):
         if not text:
 
             return jsonify({
-
                 "message":
                     "No text found in file"
-
             }), 400
 
         from services.chroma_service import (
@@ -721,13 +689,9 @@ def get_document_chunks(document_id):
 
         {
             "name": "document_id",
-
             "in": "path",
-
             "type": "integer",
-
             "required": True,
-
             "example": 1
         }
 
@@ -764,9 +728,17 @@ def get_document_chunks(document_id):
 })
 def embed_document(document_id):
 
+    # ----------------------------------------------
+    # Get logged-in user
+    # ----------------------------------------------
+
     user_id = int(
         get_jwt_identity()
     )
+
+    # ----------------------------------------------
+    # Find document
+    # ----------------------------------------------
 
     document = Document.query.filter_by(
 
@@ -779,19 +751,39 @@ def embed_document(document_id):
     if not document:
 
         return jsonify({
-
             "message":
                 "Document not found"
-
         }), 404
 
     try:
+
+        # ------------------------------------------
+        # STEP 1
+        # ------------------------------------------
+
+        print(
+            "STEP 1: Starting text extraction",
+            flush=True
+        )
 
         text = extract_text(
 
             document.file_data,
 
             document.file_type
+
+        )
+
+        # ------------------------------------------
+        # STEP 2
+        # ------------------------------------------
+
+        print(
+
+            "STEP 2: Text extraction completed. "
+            f"Characters: {len(text or '')}",
+
+            flush=True
 
         )
 
@@ -804,6 +796,18 @@ def embed_document(document_id):
 
             }), 400
 
+        # ------------------------------------------
+        # STEP 3
+        # ------------------------------------------
+
+        print(
+
+            "STEP 3: Starting Gemini embedding + Chroma",
+
+            flush=True
+
+        )
+
         result = add_document(
 
             document_id=document.id,
@@ -815,6 +819,22 @@ def embed_document(document_id):
             text=text
 
         )
+
+        # ------------------------------------------
+        # STEP 4
+        # ------------------------------------------
+
+        print(
+
+            "STEP 4: Embedding + Chroma completed",
+
+            flush=True
+
+        )
+
+        # ------------------------------------------
+        # SUCCESS RESPONSE
+        # ------------------------------------------
 
         return jsonify({
 
@@ -839,6 +859,18 @@ def embed_document(document_id):
         }), 200
 
     except Exception as e:
+
+        # ------------------------------------------
+        # ERROR LOG
+        # ------------------------------------------
+
+        print(
+
+            f"EMBED ERROR: {str(e)}",
+
+            flush=True
+
+        )
 
         return jsonify({
 
@@ -890,13 +922,9 @@ def embed_document(document_id):
 
         {
             "name": "document_id",
-
             "in": "path",
-
             "type": "integer",
-
             "required": True,
-
             "example": 1
         }
 
@@ -943,10 +971,8 @@ def delete_document_vector(document_id):
     if not document:
 
         return jsonify({
-
             "message":
                 "Document not found"
-
         }), 404
 
     try:
