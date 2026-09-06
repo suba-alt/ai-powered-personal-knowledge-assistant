@@ -121,13 +121,16 @@ def add_document(document_id, user_id, file_name, text):
         "CHROMA STEP 5: Starting ChromaDB upsert",
         flush=True
     )
+    print("CHROMA STEP 5A: About to upsert", flush=True)
 
     collection.upsert(
         ids=ids,
         embeddings=embeddings,
         documents=documents,
         metadatas=metadatas
-    )
+    ) 
+
+    print("CHROMA STEP 5B: Upsert finished", flush=True)
 
     print(
         "CHROMA STEP 6: ChromaDB upsert completed",
