@@ -21,21 +21,36 @@ OUTPUT_DIMENSION = 768
 # SINGLE DOCUMENT EMBEDDING
 # ==========================================
 
-def generate_embedding(text):
+def generate_embeddings(texts):
 
-    if not text or not text.strip():
-        raise ValueError("Text cannot be empty")
+    if not texts:
+        return []
 
-    result = client.models.embed_content(
-        model=MODEL_NAME,
-        contents=text,
-        config=types.EmbedContentConfig(
-            task_type="RETRIEVAL_DOCUMENT",
-            output_dimensionality=OUTPUT_DIMENSION
+    all_embeddings = []
+
+    BATCH_SIZE = 10
+
+    for start in range(0, len(texts), BATCH_SIZE):
+
+        batch = texts[start:start + BATCH_SIZE]
+
+        result = client.models.embed_content(
+            model=MODEL_NAME,
+            contents=batch,
+            config=types.EmbedContentConfig(
+                task_type="RETRIEVAL_DOCUMENT",
+                output_dimensionality=768
+            )
         )
-    )
 
-    return result.embeddings[0].values
+        batch_embeddings = [
+            embedding.values
+            for embedding in result.embeddings
+        ]
+
+        all_embeddings.extend(batch_embeddings)
+
+    return all_embeddings
 
 
 # ==========================================
