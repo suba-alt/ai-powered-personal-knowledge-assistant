@@ -2,13 +2,10 @@ import os
 import chromadb
 
 from services.embedding_service import (
-    generate_embedding,
+    generate_embeddings,
     generate_query_embedding
 )
 
-# ==========================================
-# CHROMADB CONFIGURATION
-# ==========================================
 
 BASE_DIR = os.path.dirname(
     os.path.dirname(
@@ -16,50 +13,33 @@ BASE_DIR = os.path.dirname(
     )
 )
 
-
 CHROMA_PATH = os.path.join(
     BASE_DIR,
     "chroma_db"
 )
 
+COLLECTION_NAME = "documents_gemini_768"
 
-COLLECTION_NAME = "documents_gemini"
-
-
-# ==========================================
-# CHROMADB CLIENT
-# ==========================================
 
 client = chromadb.PersistentClient(
     path=CHROMA_PATH
 )
 
-
-# ==========================================
-# COLLECTION
-# ==========================================
-COLLECTION_NAME = "documents_gemini_768"
-
-client = chromadb.PersistentClient(path=CHROMA_PATH)
-
 collection = client.get_or_create_collection(
     name=COLLECTION_NAME,
-    metadata={"description": "AI Knowledge Assistant documents - Gemini embeddings"}
+    metadata={
+        "description": "AI Knowledge Assistant documents - Gemini 768 embeddings"
+    }
 )
 
 
-# ==========================================
-# CHUNK TEXT
-# ==========================================
+# ============================================================
+# CREATE CHUNKS
+# ============================================================
 
-def create_chunks(
-    text,
-    chunk_size=500,
-    overlap=50
-):
+def create_chunks(text, chunk_size=500, overlap=50):
 
     if not text:
-
         return []
 
     text = text.strip()
@@ -67,29 +47,20 @@ def create_chunks(
     chunks = []
 
     start = 0
-
     text_length = len(text)
 
     while start < text_length:
 
         end = start + chunk_size
 
-        chunk = text[
-            start:end
-        ].strip()
+        chunk = text[start:end].strip()
 
         if chunk:
+            chunks.append(chunk)
 
-            chunks.append(
-                chunk
-            )
-
-        next_start = (
-            end - overlap
-        )
+        next_start = end - overlap
 
         if next_start <= start:
-
             break
 
         start = next_start
@@ -97,9 +68,10 @@ def create_chunks(
     return chunks
 
 
-# ==========================================
-# ADD DOCUMENT TO CHROMADB
-# ==========================================
+# ============================================================
+# ADD DOCUMENT
+# ============================================================
+
 def add_document(
     document_id,
     user_id,
@@ -119,8 +91,7 @@ def add_document(
     for index, chunk in enumerate(chunks):
 
         chunk_id = (
-            f"document_{document_id}_"
-            f"chunk_{index}"
+            f"document_{document_id}_chunk_{index}"
         )
 
         ids.append(chunk_id)
@@ -134,8 +105,8 @@ def add_document(
             "chunk_id": str(index)
         })
 
-    # Generate ALL embeddings in one request
-    embeddings = generate_embedding(chunks)
+    # Generate Gemini embeddings in small batches
+    embeddings = generate_embeddings(chunks)
 
     collection.upsert(
         ids=ids,
@@ -150,9 +121,9 @@ def add_document(
     }
 
 
-# ==========================================
-# SEARCH CHROMADB
-# ==========================================
+# ============================================================
+# SEARCH DOCUMENTS
+# ============================================================
 
 def search_documents(
     question,
@@ -165,26 +136,16 @@ def search_documents(
     )
 
     results = collection.query(
-
-        query_embeddings=[
-            query_embedding
-        ],
-
+        query_embeddings=[query_embedding],
         n_results=top_k,
-
         where={
-
-            "user_id":
-                str(user_id)
-
+            "user_id": str(user_id)
         },
-
         include=[
             "documents",
             "metadatas",
             "distances"
         ]
-
     )
 
     documents = results.get(
@@ -204,62 +165,40 @@ def search_documents(
 
     search_results = []
 
-    for index, text in enumerate(
-        documents
-    ):
+    for index, text in enumerate(documents):
 
         metadata = metadatas[index]
 
         distance = distances[index]
 
         search_results.append({
-
-            "text":
-                text,
-
-            "document_id":
-                metadata.get(
-                    "document_id"
-                ),
-
-            "user_id":
-                metadata.get(
-                    "user_id"
-                ),
-
-            "file_name":
-                metadata.get(
-                    "file_name"
-                ),
-
-            "chunk_id":
-                metadata.get(
-                    "chunk_id"
-                ),
-
-            "distance":
-                distance
-
+            "text": text,
+            "document_id": metadata.get(
+                "document_id"
+            ),
+            "user_id": metadata.get(
+                "user_id"
+            ),
+            "file_name": metadata.get(
+                "file_name"
+            ),
+            "chunk_id": metadata.get(
+                "chunk_id"
+            ),
+            "distance": distance
         })
 
     return search_results
 
 
-# ==========================================
-# DELETE DOCUMENT FROM CHROMADB
-# ==========================================
+# ============================================================
+# DELETE DOCUMENT
+# ============================================================
 
-def delete_document(
-    document_id
-):
+def delete_document(document_id):
 
     collection.delete(
-
         where={
-
-            "document_id":
-                str(document_id)
-
+            "document_id": str(document_id)
         }
-
     )
