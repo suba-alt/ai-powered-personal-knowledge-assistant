@@ -33,7 +33,7 @@ client = genai.Client(
 # EMBEDDING CONFIGURATION
 # ============================================================
 
-MODEL_NAME = "gemini-embedding-2"
+MODEL_NAME = "gemini-embedding-001"
 
 OUTPUT_DIMENSION = 768
 
