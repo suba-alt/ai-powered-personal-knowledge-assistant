@@ -41,35 +41,37 @@ OUTPUT_DIMENSION = 768
 # ============================================================
 # SINGLE DOCUMENT EMBEDDING
 # ============================================================
+def generate_embeddings(texts):
 
-def generate_embedding(text):
+    if not texts:
+        return []
 
-    if not text or not text.strip():
-        raise ValueError("Text cannot be empty")
+    all_embeddings = []
 
-    result = client.models.embed_content(
+    for text in texts:
 
-        model=MODEL_NAME,
+        if not text or not text.strip():
+            continue
 
-        contents=text,
-
-        config=types.EmbedContentConfig(
-
-            task_type="RETRIEVAL_DOCUMENT",
-
-            output_dimensionality=OUTPUT_DIMENSION
-
+        result = client.models.embed_content(
+            model=MODEL_NAME,
+            contents=text,
+            config=types.EmbedContentConfig(
+                task_type="RETRIEVAL_DOCUMENT",
+                output_dimensionality=OUTPUT_DIMENSION
+            )
         )
 
-    )
+        if not result.embeddings:
+            raise ValueError(
+                "Gemini returned no embedding"
+            )
 
-    if not result.embeddings:
-
-        raise ValueError(
-            "Gemini returned no embedding"
+        all_embeddings.append(
+            result.embeddings[0].values
         )
 
-    return result.embeddings[0].values
+    return all_embeddings
 
 
 # ============================================================
