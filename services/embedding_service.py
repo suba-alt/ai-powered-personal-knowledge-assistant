@@ -1,55 +1,46 @@
-from sentence_transformers import SentenceTransformer
+import os
+
+from dotenv import load_dotenv
+from google import genai
+from google.genai import types
 
 
-# ==========================================
-# EMBEDDING MODEL
-# ==========================================
+load_dotenv()
 
-MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
-
-model = SentenceTransformer(
-    MODEL_NAME,
-    backend="onnx"
+client = genai.Client(
+    api_key=os.getenv("GEMINI_API_KEY")
 )
 
-model.max_seq_length = 256
+MODEL_NAME = "gemini-embedding-001"
 
-
-# ==========================================
-# SINGLE TEXT EMBEDDING
-# ==========================================
 
 def generate_embedding(text):
 
     if not text or not text.strip():
-        raise ValueError(
-            "Text cannot be empty"
+        raise ValueError("Text cannot be empty")
+
+    result = client.models.embed_content(
+        model=MODEL_NAME,
+        contents=text,
+        config=types.EmbedContentConfig(
+            task_type="RETRIEVAL_DOCUMENT"
         )
-
-    embedding = model.encode(
-        text,
-        convert_to_numpy=True,
-        batch_size=1,
-        show_progress_bar=False
     )
 
-    return embedding.tolist()
+    return result.embeddings[0].values
 
 
-# ==========================================
-# MULTIPLE TEXT EMBEDDINGS
-# ==========================================
+def generate_query_embedding(text):
 
-def generate_embeddings(texts):
+    if not text or not text.strip():
+        raise ValueError("Text cannot be empty")
 
-    if not texts:
-        return []
-
-    embeddings = model.encode(
-        texts,
-        convert_to_numpy=True,
-        batch_size=8,
-        show_progress_bar=False
+    result = client.models.embed_content(
+        model=MODEL_NAME,
+        contents=text,
+        config=types.EmbedContentConfig(
+            task_type="RETRIEVAL_QUERY"
+        )
     )
 
-    return embeddings.tolist()
+    return result.embeddings[0].values

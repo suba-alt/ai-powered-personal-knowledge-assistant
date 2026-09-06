@@ -2,9 +2,9 @@ import os
 import chromadb
 
 from services.embedding_service import (
-    generate_embedding
+    generate_embedding,
+    generate_query_embedding
 )
-
 
 # ==========================================
 # CHROMADB CONFIGURATION
@@ -23,7 +23,7 @@ CHROMA_PATH = os.path.join(
 )
 
 
-COLLECTION_NAME = "documents"
+COLLECTION_NAME = "documents_gemini"
 
 
 # ==========================================
@@ -38,15 +38,13 @@ client = chromadb.PersistentClient(
 # ==========================================
 # COLLECTION
 # ==========================================
+COLLECTION_NAME = "documents_gemini"
+
+client = chromadb.PersistentClient(path=CHROMA_PATH)
 
 collection = client.get_or_create_collection(
-
     name=COLLECTION_NAME,
-
-    metadata={
-        "description":
-            "AI Knowledge Assistant documents"
-    }
+    metadata={"description": "AI Knowledge Assistant documents - Gemini embeddings"}
 )
 
 
@@ -200,7 +198,7 @@ def search_documents(
     top_k=5
 ):
 
-    query_embedding = generate_embedding(
+    query_embedding = generate_query_embedding(
         question
     )
 
