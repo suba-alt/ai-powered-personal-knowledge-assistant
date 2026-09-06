@@ -5,13 +5,36 @@ from google import genai
 from google.genai import types
 
 
+# ============================================================
+# LOAD ENVIRONMENT VARIABLES
+# ============================================================
+
 load_dotenv()
 
+
+# ============================================================
+# GEMINI CLIENT
+# ============================================================
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+if not GEMINI_API_KEY:
+    raise ValueError(
+        "GEMINI_API_KEY is missing from environment variables"
+    )
+
+
 client = genai.Client(
-    api_key=os.getenv("GEMINI_API_KEY")
+    api_key=GEMINI_API_KEY
 )
 
-MODEL_NAME = "gemini-embedding-001"
+
+# ============================================================
+# EMBEDDING CONFIGURATION
+# ============================================================
+
+MODEL_NAME = "gemini-embedding-2"
+
 OUTPUT_DIMENSION = 768
 
 
@@ -25,13 +48,26 @@ def generate_embedding(text):
         raise ValueError("Text cannot be empty")
 
     result = client.models.embed_content(
+
         model=MODEL_NAME,
+
         contents=text,
+
         config=types.EmbedContentConfig(
+
             task_type="RETRIEVAL_DOCUMENT",
+
             output_dimensionality=OUTPUT_DIMENSION
+
         )
+
     )
+
+    if not result.embeddings:
+
+        raise ValueError(
+            "Gemini returned no embedding"
+        )
 
     return result.embeddings[0].values
 
@@ -47,27 +83,52 @@ def generate_embeddings(texts):
 
     all_embeddings = []
 
-    BATCH_SIZE = 10
+    # Keep the batch small for the Render MVP
+    BATCH_SIZE = 5
 
-    for start in range(0, len(texts), BATCH_SIZE):
+    for start in range(
+        0,
+        len(texts),
+        BATCH_SIZE
+    ):
 
-        batch = texts[start:start + BATCH_SIZE]
-
-        result = client.models.embed_content(
-            model=MODEL_NAME,
-            contents=batch,
-            config=types.EmbedContentConfig(
-                task_type="RETRIEVAL_DOCUMENT",
-                output_dimensionality=OUTPUT_DIMENSION
-            )
-        )
-
-        batch_embeddings = [
-            embedding.values
-            for embedding in result.embeddings
+        batch = texts[
+            start:start + BATCH_SIZE
         ]
 
-        all_embeddings.extend(batch_embeddings)
+        result = client.models.embed_content(
+
+            model=MODEL_NAME,
+
+            contents=batch,
+
+            config=types.EmbedContentConfig(
+
+                task_type="RETRIEVAL_DOCUMENT",
+
+                output_dimensionality=OUTPUT_DIMENSION
+
+            )
+
+        )
+
+        if not result.embeddings:
+
+            raise ValueError(
+                "Gemini returned no embeddings"
+            )
+
+        batch_embeddings = [
+
+            embedding.values
+
+            for embedding in result.embeddings
+
+        ]
+
+        all_embeddings.extend(
+            batch_embeddings
+        )
 
     return all_embeddings
 
@@ -82,12 +143,25 @@ def generate_query_embedding(text):
         raise ValueError("Text cannot be empty")
 
     result = client.models.embed_content(
+
         model=MODEL_NAME,
+
         contents=text,
+
         config=types.EmbedContentConfig(
+
             task_type="RETRIEVAL_QUERY",
+
             output_dimensionality=OUTPUT_DIMENSION
+
         )
+
     )
+
+    if not result.embeddings:
+
+        raise ValueError(
+            "Gemini returned no query embedding"
+        )
 
     return result.embeddings[0].values
