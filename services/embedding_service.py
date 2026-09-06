@@ -1,34 +1,33 @@
 from sentence_transformers import SentenceTransformer
 
 
-# ==========================================
-# EMBEDDING MODEL
-# ==========================================
-
 MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
-model = SentenceTransformer(
-    MODEL_NAME,
-    device="cpu"
-)
-
-# Reduce maximum sequence length to reduce memory usage
-model.max_seq_length = 256
+model = None
 
 
-# ==========================================
-# SINGLE TEXT EMBEDDING
-# ==========================================
+def get_model():
+
+    global model
+
+    if model is None:
+
+        model = SentenceTransformer(
+            MODEL_NAME,
+            device="cpu"
+        )
+
+        model.max_seq_length = 256
+
+    return model
+
 
 def generate_embedding(text):
 
     if not text or not text.strip():
+        raise ValueError("Text cannot be empty")
 
-        raise ValueError(
-            "Text cannot be empty"
-        )
-
-    embedding = model.encode(
+    embedding = get_model().encode(
         text,
         convert_to_numpy=True,
         batch_size=1,
@@ -38,17 +37,12 @@ def generate_embedding(text):
     return embedding.tolist()
 
 
-# ==========================================
-# MULTIPLE TEXT EMBEDDINGS
-# ==========================================
-
 def generate_embeddings(texts):
 
     if not texts:
-
         return []
 
-    embeddings = model.encode(
+    embeddings = get_model().encode(
         texts,
         convert_to_numpy=True,
         batch_size=8,
