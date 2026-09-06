@@ -72,14 +72,16 @@ def create_chunks(text, chunk_size=500, overlap=50):
 # ADD DOCUMENT
 # ============================================================
 
-def add_document(
-    document_id,
-    user_id,
-    file_name,
-    text
-):
+def add_document(document_id, user_id, file_name, text):
+
+    print("CHROMA STEP 1: Creating chunks", flush=True)
 
     chunks = create_chunks(text)
+
+    print(
+        f"CHROMA STEP 2: Chunks created: {len(chunks)}",
+        flush=True
+    )
 
     if not chunks:
         raise ValueError("No text chunks found")
@@ -90,12 +92,9 @@ def add_document(
 
     for index, chunk in enumerate(chunks):
 
-        chunk_id = (
-            f"document_{document_id}_chunk_{index}"
-        )
+        chunk_id = f"document_{document_id}_chunk_{index}"
 
         ids.append(chunk_id)
-
         documents.append(chunk)
 
         metadatas.append({
@@ -105,14 +104,34 @@ def add_document(
             "chunk_id": str(index)
         })
 
-    # Generate Gemini embeddings in small batches
+    print(
+        "CHROMA STEP 3: Starting Gemini embeddings",
+        flush=True
+    )
+
     embeddings = generate_embeddings(chunks)
+
+    print(
+        f"CHROMA STEP 4: Gemini embeddings completed. "
+        f"Embeddings: {len(embeddings)}",
+        flush=True
+    )
+
+    print(
+        "CHROMA STEP 5: Starting ChromaDB upsert",
+        flush=True
+    )
 
     collection.upsert(
         ids=ids,
         embeddings=embeddings,
         documents=documents,
         metadatas=metadatas
+    )
+
+    print(
+        "CHROMA STEP 6: ChromaDB upsert completed",
+        flush=True
     )
 
     return {
