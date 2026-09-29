@@ -1,21 +1,71 @@
-.env
+# =========================
+# Python
+# =========================
 
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
 
-.venv/
 venv/
+.venv/
+env/
+ENV/
+
+# =========================
+# Environment / Secrets
+# =========================
+
+.env
+.env.*
+!.env.example
+
+# =========================
+# Flask
+# =========================
+
+instance/
+
+# =========================
+# ChromaDB
+# =========================
 
 chroma_db/
-vector_store/
+
+# =========================
+# Uploaded / generated files
+# =========================
 
 uploads/
+uploaded_files/
+*.blob
+
+# =========================
+# Node
+# =========================
+
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# =========================
+# Build
+# =========================
+
+dist/
+build/
+
+# =========================
+# IDE
+# =========================
 
 .vscode/
 .idea/
 
-*.log
-test_chroma.py
-test_chroma_search.py
-test_chroma_debug.py
+# =========================
+# OS
+# =========================
+
+.DS_Store
+Thumbs.db
+desktop.ini

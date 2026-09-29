@@ -17,7 +17,7 @@ from services.chroma_service import (
 
 
 # =========================================================
-# SEARCH BLUEPRINT
+# CREATE BLUEPRINT
 # =========================================================
 
 search_bp = Blueprint(
@@ -27,8 +27,7 @@ search_bp = Blueprint(
 
 
 # =========================================================
-# SEARCH DOCUMENTS
-# POST /search
+# SEARCH API
 # =========================================================
 
 @search_bp.route(
@@ -37,169 +36,59 @@ search_bp = Blueprint(
 )
 @jwt_required()
 @swag_from({
-
-    "tags": [
-        "Search"
-    ],
-
-    "summary": "Search Documents",
-
-    "description": (
-        "Perform semantic search on the logged-in "
-        "user's embedded documents using ChromaDB."
-    ),
-
-    "operationId": "searchDocuments",
-
-    "consumes": [
-        "application/json"
-    ],
-
-    "produces": [
-        "application/json"
-    ],
-
+    "tags": ["Search"],
     "security": [
         {
             "Bearer": []
         }
     ],
-
     "parameters": [
-
         {
             "name": "body",
-
             "in": "body",
-
             "required": True,
-
             "schema": {
-
                 "type": "object",
-
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "example": "What is Python?"
+                    },
+                    "top_k": {
+                        "type": "integer",
+                        "example": 5
+                    }
+                },
                 "required": [
                     "query"
-                ],
-
-                "properties": {
-
-                    "query": {
-
-                        "type": "string",
-
-                        "example":
-                            "What is machine learning?"
-
-                    },
-
-                    "top_k": {
-
-                        "type": "integer",
-
-                        "example": 5,
-
-                        "default": 5,
-
-                        "description":
-                            "Number of relevant chunks to return."
-
-                    }
-
-                }
-
+                ]
             }
-
         }
-
     ],
-
     "responses": {
-
-        "200": {
-
-            "description":
-                "Search completed successfully",
-
-            "examples": {
-
-                "application/json": {
-
-                    "message":
-                        "Search completed successfully",
-
-                    "query":
-                        "What is machine learning?",
-
-                    "total_results":
-                        2,
-
-                    "results": [
-
-                        {
-
-                            "text":
-                                "Machine learning is a branch of AI...",
-
-                            "document_id":
-                                "1",
-
-                            "user_id":
-                                "1",
-
-                            "file_name":
-                                "ai_notes.pdf",
-
-                            "chunk_id":
-                                "0",
-
-                            "distance":
-                                0.245
-
-                        }
-
-                    ]
-
-                }
-
-            }
-
+        200: {
+            "description": "Search completed successfully"
         },
-
-        "400": {
-
-            "description":
-                "Request body or query is missing"
-
+        400: {
+            "description": "Invalid request"
         },
-
-        "401": {
-
-            "description":
-                "Missing or invalid JWT token"
-
+        401: {
+            "description": "Unauthorized"
         },
-
-        "500": {
-
-            "description":
-                "Search failed"
-
+        500: {
+            "description": "Search failed"
         }
-
     }
-
 })
 def search():
 
     # =====================================================
-    # GET LOGGED-IN USER
+    # GET USER ID FROM JWT
     # =====================================================
 
     user_id = int(
         get_jwt_identity()
     )
-
 
     # =====================================================
     # GET REQUEST BODY
@@ -207,16 +96,12 @@ def search():
 
     data = request.get_json()
 
-
     if not data:
 
         return jsonify({
-
             "message":
                 "Request body is required"
-
         }), 400
-
 
     # =====================================================
     # GET QUERY
@@ -226,16 +111,14 @@ def search():
         "query"
     )
 
-
-    if not query:
+    if not query or not query.strip():
 
         return jsonify({
-
             "message":
                 "Query is required"
-
         }), 400
 
+    query = query.strip()
 
     # =====================================================
     # GET TOP K
@@ -246,7 +129,6 @@ def search():
         5
     )
 
-
     try:
 
         top_k = int(
@@ -256,55 +138,47 @@ def search():
     except (TypeError, ValueError):
 
         return jsonify({
-
             "message":
                 "top_k must be an integer"
-
         }), 400
-
-
-    # =====================================================
-    # VALIDATE TOP K
-    # =====================================================
 
     if top_k <= 0:
 
         return jsonify({
-
             "message":
                 "top_k must be greater than 0"
-
         }), 400
 
-
-    # =====================================================
-    # LIMIT RESULTS
-    # =====================================================
+    # Maximum 10 results
 
     if top_k > 10:
 
         top_k = 10
 
-
     # =====================================================
-    # CHROMADB SEMANTIC SEARCH
+    # PERFORM SEMANTIC SEARCH
     # =====================================================
 
     try:
 
-        results = search_documents(
-
-            question=query,
-
-            user_id=user_id,
-
-            top_k=top_k
-
+        print(
+            "SEARCH API: Starting semantic search",
+            flush=True
         )
 
+        results = search_documents(
+            question=query,
+            user_id=user_id,
+            top_k=top_k
+        )
+
+        print(
+            f"SEARCH API: Results found = {len(results)}",
+            flush=True
+        )
 
         # =================================================
-        # RESPONSE
+        # RETURN RESULTS
         # =================================================
 
         return jsonify({
@@ -323,8 +197,23 @@ def search():
 
         }), 200
 
-
     except Exception as e:
+
+        print(
+            "==========================================",
+            flush=True
+        )
+
+        print(
+            "SEARCH ERROR:",
+            repr(e),
+            flush=True
+        )
+
+        print(
+            "==========================================",
+            flush=True
+        )
 
         return jsonify({
 

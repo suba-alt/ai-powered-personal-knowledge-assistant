@@ -1,4 +1,5 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
+from flask_cors import CORS
 from flasgger import Swagger
 from flask_jwt_extended import JWTManager
 
@@ -28,17 +29,102 @@ app = Flask(__name__)
 
 
 # =========================================================
+# CORS CONFIGURATION
+# =========================================================
+#
+# Frontend:
+#   http://localhost:5173
+#   http://127.0.0.1:5173
+#
+# Backend:
+#   http://127.0.0.1:5000
+#
+# Authorization header is allowed because
+# protected APIs use JWT.
+# =========================================================
+
+CORS(
+    app,
+    resources={
+        r"/*": {
+            "origins": [
+                "http://localhost:5173",
+                "http://127.0.0.1:5173"
+            ],
+            "methods": [
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "OPTIONS"
+            ],
+            "allow_headers": [
+                "Content-Type",
+                "Authorization"
+            ]
+        }
+    }
+)
+
+
+# =========================================================
+# EXTRA CORS RESPONSE HEADERS
+# =========================================================
+#
+# This makes sure that the actual API response,
+# including error responses such as HTTP 500,
+# contains the required CORS headers.
+# =========================================================
+
+@app.after_request
+def add_cors_headers(response):
+
+    origin = request.headers.get("Origin")
+
+    allowed_origins = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173"
+    ]
+
+    if origin in allowed_origins:
+
+        response.headers["Access-Control-Allow-Origin"] = origin
+
+        response.headers["Access-Control-Allow-Headers"] = (
+            "Content-Type, Authorization"
+        )
+
+        response.headers["Access-Control-Allow-Methods"] = (
+            "GET, POST, PUT, DELETE, OPTIONS"
+        )
+
+    return response
+
+
+# =========================================================
 # DATABASE CONFIGURATION
 # =========================================================
 
-app.config["SQLALCHEMY_DATABASE_URI"] = SQLALCHEMY_DATABASE_URI
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = SQLALCHEMY_TRACK_MODIFICATIONS
+app.config["SQLALCHEMY_DATABASE_URI"] = (
+    SQLALCHEMY_DATABASE_URI
+)
+
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = (
+    SQLALCHEMY_TRACK_MODIFICATIONS
+)
+
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+
     "connect_args": {
+
         "ssl_verify_cert": True,
+
         "ssl_verify_identity": True,
+
         "ssl_ca": CA_PATH
+
     }
+
 }
 
 
@@ -71,7 +157,9 @@ app.config["SWAGGER"] = {
 
     "title": "AI Knowledge Assistant API",
 
-    "description": "Backend API for AI Knowledge Assistant",
+    "description": (
+        "Backend API for AI Knowledge Assistant"
+    ),
 
     "version": "1.0.0",
 
@@ -107,7 +195,7 @@ app.config["SWAGGER"] = {
                 "POST /files/{document_id}/embed": 12,
                 "DELETE /files/{document_id}/vector": 13,
 
-                "GET /search": 14,
+                "POST /search": 14,
 
                 "POST /ask": 15,
 
@@ -127,9 +215,11 @@ app.config["SWAGGER"] = {
                 + " "
                 + b.get("path");
 
-            var positionA = order[keyA] || 999;
+            var positionA =
+                order[keyA] || 999;
 
-            var positionB = order[keyB] || 999;
+            var positionB =
+                order[keyB] || 999;
 
             return positionA - positionB;
         },
@@ -148,9 +238,11 @@ app.config["SWAGGER"] = {
 
             };
 
-            var positionA = order[a] || 999;
+            var positionA =
+                order[a] || 999;
 
-            var positionB = order[b] || 999;
+            var positionB =
+                order[b] || 999;
 
             return positionA - positionB;
         }
@@ -178,12 +270,19 @@ swagger_config = {
             "rule_filter": lambda rule: (
 
                 rule.rule.startswith("/auth")
+
                 or rule.rule == "/notes"
+
                 or rule.rule.startswith("/notes/")
+
                 or rule.rule.startswith("/files/")
+
                 or rule.rule.startswith("/search")
+
                 or rule.rule.startswith("/ask")
+
                 or rule.rule.startswith("/ai-queries")
+
                 or rule.rule.startswith("/chat-history")
 
             ),
@@ -221,7 +320,9 @@ swagger_template = {
 
         "title": "AI Knowledge Assistant API",
 
-        "description": "Backend API for AI Knowledge Assistant",
+        "description": (
+            "Backend API for AI Knowledge Assistant"
+        ),
 
         "version": "1.0.0"
 
@@ -237,7 +338,9 @@ swagger_template = {
 
             "in": "header",
 
-            "description": "Enter: Bearer <your JWT token>"
+            "description": (
+                "Enter: Bearer <your JWT token>"
+            )
 
         }
 
@@ -249,7 +352,9 @@ swagger_template = {
 
             "name": "Authentication",
 
-            "description": "User authentication APIs"
+            "description": (
+                "User authentication APIs"
+            )
 
         },
 
@@ -257,7 +362,9 @@ swagger_template = {
 
             "name": "Notes",
 
-            "description": "Notes management APIs"
+            "description": (
+                "Notes management APIs"
+            )
 
         },
 
@@ -265,7 +372,9 @@ swagger_template = {
 
             "name": "Files",
 
-            "description": "File upload and document processing APIs"
+            "description": (
+                "File upload and document processing APIs"
+            )
 
         },
 
@@ -273,7 +382,9 @@ swagger_template = {
 
             "name": "Search",
 
-            "description": "Semantic document search APIs"
+            "description": (
+                "Semantic document search APIs"
+            )
 
         },
 
@@ -281,7 +392,9 @@ swagger_template = {
 
             "name": "Ask",
 
-            "description": "AI question answering using RAG"
+            "description": (
+                "AI question answering using RAG"
+            )
 
         },
 
@@ -289,7 +402,9 @@ swagger_template = {
 
             "name": "AI Queries",
 
-            "description": "Previously asked AI questions"
+            "description": (
+                "Previously asked AI questions"
+            )
 
         },
 
@@ -297,7 +412,9 @@ swagger_template = {
 
             "name": "Chat History",
 
-            "description": "AI responses and confidence scores"
+            "description": (
+                "AI responses and confidence scores"
+            )
 
         }
 
@@ -321,31 +438,49 @@ swagger = Swagger(
 # REGISTER BLUEPRINTS
 # =========================================================
 
-app.register_blueprint(auth_bp)
+app.register_blueprint(
+    auth_bp
+)
 
-app.register_blueprint(notes_bp)
+app.register_blueprint(
+    notes_bp
+)
 
-app.register_blueprint(files_bp)
+app.register_blueprint(
+    files_bp
+)
 
-app.register_blueprint(search_bp)
+app.register_blueprint(
+    search_bp
+)
 
-app.register_blueprint(ask_bp)
+app.register_blueprint(
+    ask_bp
+)
 
-app.register_blueprint(ai_queries_bp)
+app.register_blueprint(
+    ai_queries_bp
+)
 
-app.register_blueprint(chat_history_bp)
+app.register_blueprint(
+    chat_history_bp
+)
 
 
 # =========================================================
 # HOME
 # =========================================================
 
-@app.route("/", methods=["GET"])
+@app.route(
+    "/",
+    methods=["GET"]
+)
 def home():
 
     return jsonify({
 
-        "message": "AI Knowledge Assistant Backend is running"
+        "message":
+            "AI Knowledge Assistant Backend is running"
 
     })
 
@@ -354,7 +489,10 @@ def home():
 # TEST DATABASE
 # =========================================================
 
-@app.route("/test-db", methods=["GET"])
+@app.route(
+    "/test-db",
+    methods=["GET"]
+)
 def test_db():
 
     try:
@@ -367,7 +505,8 @@ def test_db():
 
         return jsonify({
 
-            "message": "Database connected successfully"
+            "message":
+                "Database connected successfully"
 
         })
 
@@ -375,7 +514,8 @@ def test_db():
 
         return jsonify({
 
-            "error": str(e)
+            "error":
+                str(e)
 
         }), 500
 
@@ -384,7 +524,10 @@ def test_db():
 # SHOW ROUTES
 # =========================================================
 
-@app.route("/routes", methods=["GET"])
+@app.route(
+    "/routes",
+    methods=["GET"]
+)
 def show_routes():
 
     routes = []
@@ -393,17 +536,21 @@ def show_routes():
 
         routes.append({
 
-            "endpoint": rule.endpoint,
+            "endpoint":
+                rule.endpoint,
 
-            "methods": sorted(
+            "methods":
+                sorted(
+                    method
+                    for method in rule.methods
+                    if method not in [
+                        "HEAD",
+                        "OPTIONS"
+                    ]
+                ),
 
-                method
-                for method in rule.methods
-                if method not in ["HEAD", "OPTIONS"]
-
-            ),
-
-            "path": str(rule)
+            "path":
+                str(rule)
 
         })
 
@@ -415,6 +562,41 @@ def show_routes():
 # =========================================================
 
 if __name__ == "__main__":
+
+    print(
+        "==========================================",
+        flush=True
+    )
+
+    print(
+        "AI KNOWLEDGE ASSISTANT BACKEND",
+        flush=True
+    )
+
+    print(
+        "==========================================",
+        flush=True
+    )
+
+    print(
+        "Backend: http://127.0.0.1:5000",
+        flush=True
+    )
+
+    print(
+        "Frontend: http://localhost:5173",
+        flush=True
+    )
+
+    print(
+        "CORS: Enabled",
+        flush=True
+    )
+
+    print(
+        "==========================================",
+        flush=True
+    )
 
     app.run(
         host="127.0.0.1",

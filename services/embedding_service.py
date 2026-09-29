@@ -1,75 +1,71 @@
-import os
+from sentence_transformers import SentenceTransformer
 
-from dotenv import load_dotenv
-from google import genai
-from google.genai import types
 
-load_dotenv()
+# ============================================================
+# MODEL CONFIGURATION
+# ============================================================
 
-client = genai.Client(
-    api_key=os.getenv("GEMINI_API_KEY")
-)
+MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
-MODEL_NAME = "gemini-embedding-001"
-OUTPUT_DIMENSION = 768
+# Load model only once when Flask starts
+model = SentenceTransformer(MODEL_NAME)
 
+
+# ============================================================
+# GENERATE SINGLE EMBEDDING
+# ============================================================
 
 def generate_embedding(text):
+
     if not text or not text.strip():
         raise ValueError("Text cannot be empty")
 
-    result = client.models.embed_content(
-        model=MODEL_NAME,
-        contents=text,
-        config=types.EmbedContentConfig(
-            task_type="RETRIEVAL_DOCUMENT",
-            output_dimensionality=OUTPUT_DIMENSION
-        )
+    embedding = model.encode(
+        text,
+        normalize_embeddings=True
     )
 
-    return result.embeddings[0].values
+    return embedding.tolist()
 
+
+# ============================================================
+# GENERATE MULTIPLE EMBEDDINGS
+# ============================================================
 
 def generate_embeddings(texts):
+
     if not texts:
         return []
 
-    all_embeddings = []
+    valid_texts = [
+        text.strip()
+        for text in texts
+        if text and text.strip()
+    ]
 
-    for text in texts:
-        if not text or not text.strip():
-            continue
+    if not valid_texts:
+        return []
 
-        result = client.models.embed_content(
-            model=MODEL_NAME,
-            contents=text,
-            config=types.EmbedContentConfig(
-                task_type="RETRIEVAL_DOCUMENT",
-                output_dimensionality=OUTPUT_DIMENSION
-            )
-        )
+    embeddings = model.encode(
+        valid_texts,
+        normalize_embeddings=True
+    )
 
-        if not result.embeddings:
-            raise ValueError("Gemini returned no embedding")
+    return embeddings.tolist()
 
-        all_embeddings.append(
-            result.embeddings[0].values
-        )
 
-    return all_embeddings
-
+# ============================================================
+# GENERATE QUERY EMBEDDING
+# ============================================================
 
 def generate_query_embedding(text):
+
     if not text or not text.strip():
         raise ValueError("Text cannot be empty")
 
-    result = client.models.embed_content(
-        model=MODEL_NAME,
-        contents=text,
-        config=types.EmbedContentConfig(
-            task_type="RETRIEVAL_QUERY",
-            output_dimensionality=OUTPUT_DIMENSION
-        )
+    embedding = model.encode(
+        text,
+        normalize_embeddings=True
     )
 
-    return result.embeddings[0].values
+    return embedding.tolist()

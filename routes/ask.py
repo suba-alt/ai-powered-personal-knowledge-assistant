@@ -14,7 +14,7 @@ from flask_jwt_extended import (
 
 from flasgger import swag_from
 
-from services.search_service import (
+from services.chroma_service import (
     search_documents
 )
 
@@ -45,6 +45,7 @@ ask_bp = Blueprint(
 )
 @jwt_required()
 @swag_from({
+
     "tags": [
         "Ask"
     ],
@@ -55,8 +56,7 @@ ask_bp = Blueprint(
     "description":
         "Ask a question and generate an AI answer "
         "using relevant information from the user's "
-        "uploaded documents. The question and AI response "
-        "are stored in the AI query and chat history tables.",
+        "uploaded documents.",
 
     "operationId":
         "askQuestion",
@@ -76,6 +76,7 @@ ask_bp = Blueprint(
     ],
 
     "parameters": [
+
         {
             "name":
                 "body",
@@ -90,6 +91,7 @@ ask_bp = Blueprint(
                 "Question to ask the AI.",
 
             "schema": {
+
                 "type":
                     "object",
 
@@ -100,6 +102,7 @@ ask_bp = Blueprint(
                 "properties": {
 
                     "query": {
+
                         "type":
                             "string",
 
@@ -107,16 +110,17 @@ ask_bp = Blueprint(
                             "Question to ask.",
 
                         "example":
-                            "What is machine learning?"
+                            "What is software testing?"
                     },
 
                     "top_k": {
+
                         "type":
                             "integer",
 
                         "description":
-                            "Number of relevant document chunks "
-                            "to retrieve.",
+                            "Number of relevant document "
+                            "chunks to retrieve.",
 
                         "default":
                             5,
@@ -132,89 +136,75 @@ ask_bp = Blueprint(
     "responses": {
 
         "200": {
+
             "description":
-                "Question answered successfully",
-
-            "examples": {
-                "application/json": {
-
-                    "message":
-                        "Question answered successfully",
-
-                    "query":
-                        "What is machine learning?",
-
-                    "answer":
-                        "Machine learning is a method of "
-                        "teaching computers to learn from data.",
-
-                    "confidence_score":
-                        87.50,
-
-                    "sources": [
-                        {
-                            "text":
-                                "Machine learning is a branch "
-                                "of artificial intelligence...",
-
-                            "document_id":
-                                "1",
-
-                            "user_id":
-                                "1",
-
-                            "file_name":
-                                "AI_Notes.pdf",
-
-                            "chunk_id":
-                                "0",
-
-                            "distance":
-                                0.125,
-
-                            "relevance_percentage":
-                                100.0
-                        }
-                    ]
-                }
-            }
+                "Question answered successfully"
         },
 
         "400": {
+
             "description":
                 "Invalid request"
         },
 
         "401": {
+
             "description":
                 "Missing or invalid JWT token"
         },
 
         "500": {
+
             "description":
                 "Question answering failed"
         }
     }
 })
+
+
 def ask():
 
     try:
 
-        # ----------------------------------------------------
-        # GET LOGGED-IN USER
-        # ----------------------------------------------------
+        # ====================================================
+        # STEP 1 — GET LOGGED-IN USER
+        # ====================================================
 
         user_id = get_jwt_identity()
 
+        print(
+            "==========================================",
+            flush=True
+        )
 
-        # ----------------------------------------------------
-        # GET JSON REQUEST
-        # ----------------------------------------------------
+        print(
+            "ASK API: User ID =",
+            user_id,
+            flush=True
+        )
+
+        print(
+            "ASK API: User ID type =",
+            type(user_id),
+            flush=True
+        )
+
+        if user_id is None:
+
+            return jsonify({
+
+                "message":
+                    "User identity not found"
+
+            }), 401
+
+        # ====================================================
+        # STEP 2 — GET REQUEST BODY
+        # ====================================================
 
         data = request.get_json(
             silent=True
         )
-
 
         if not data:
 
@@ -225,15 +215,13 @@ def ask():
 
             }), 400
 
-
-        # ----------------------------------------------------
-        # GET QUESTION
-        # ----------------------------------------------------
+        # ====================================================
+        # STEP 3 — GET QUESTION
+        # ====================================================
 
         question = data.get(
             "query"
         )
-
 
         if question is None:
 
@@ -244,11 +232,9 @@ def ask():
 
             }), 400
 
-
         question = str(
             question
         ).strip()
-
 
         if not question:
 
@@ -259,16 +245,14 @@ def ask():
 
             }), 400
 
-
-        # ----------------------------------------------------
-        # GET TOP K
-        # ----------------------------------------------------
+        # ====================================================
+        # STEP 4 — GET TOP K
+        # ====================================================
 
         top_k = data.get(
             "top_k",
             5
         )
-
 
         try:
 
@@ -288,10 +272,9 @@ def ask():
 
             }), 400
 
-
-        # ----------------------------------------------------
-        # VALIDATE TOP K
-        # ----------------------------------------------------
+        # ====================================================
+        # STEP 5 — VALIDATE TOP K
+        # ====================================================
 
         if top_k <= 0:
 
@@ -302,36 +285,93 @@ def ask():
 
             }), 400
 
-
-        # ----------------------------------------------------
-        # LIMIT TOP K
-        # ----------------------------------------------------
-
         if top_k > 10:
 
             top_k = 10
 
+        # ====================================================
+        # STEP 6 — SEMANTIC SEARCH
+        # ====================================================
 
-        # ----------------------------------------------------
-        # SEARCH CHROMADB
-        # ----------------------------------------------------
+        print(
+            "ASK STEP 1: Starting semantic search",
+            flush=True
+        )
 
         search_results = search_documents(
 
-            query=question,
+            question=question,
 
             user_id=user_id,
 
             top_k=top_k
-
         )
 
+        print(
+            f"ASK STEP 2: Search results = "
+            f"{len(search_results)}",
+            flush=True
+        )
 
-        # ----------------------------------------------------
-        # CHECK SEARCH RESULTS
-        # ----------------------------------------------------
+        # ====================================================
+        # DEBUG SEARCH RESULTS
+        # ====================================================
+
+        for index, result in enumerate(
+            search_results,
+            start=1
+        ):
+
+            print(
+                f"ASK SEARCH RESULT {index}:",
+                flush=True
+            )
+
+            print(
+                "  File:",
+                result.get("file_name"),
+                flush=True
+            )
+
+            print(
+                "  Chunk:",
+                result.get("chunk_id"),
+                flush=True
+            )
+
+            print(
+                "  Distance:",
+                result.get("distance"),
+                flush=True
+            )
+
+            print(
+                "  Relevance:",
+                result.get(
+                    "relevance_percentage"
+                ),
+                flush=True
+            )
+
+            print(
+                "  Text preview:",
+                result.get(
+                    "text",
+                    ""
+                )[:300],
+                flush=True
+            )
+
+        # ====================================================
+        # STEP 7 — NO SEARCH RESULTS
+        # ====================================================
 
         if not search_results:
+
+            print(
+                "ASK STEP 3: No relevant chunks found",
+                flush=True
+            )
 
             return jsonify({
 
@@ -353,38 +393,70 @@ def ask():
 
             }), 200
 
-
-        # ----------------------------------------------------
-        # BUILD DOCUMENT CONTEXT
-        # ----------------------------------------------------
+        # ====================================================
+        # STEP 8 — BUILD RAG CONTEXT
+        # ====================================================
 
         context_parts = []
 
-
-        for result in search_results:
+        for index, result in enumerate(
+            search_results,
+            start=1
+        ):
 
             text = result.get(
-                "text"
+                "text",
+                ""
             )
 
+            file_name = result.get(
+                "file_name",
+                "Unknown file"
+            )
 
-            if text:
+            chunk_id = result.get(
+                "chunk_id",
+                "Unknown chunk"
+            )
+
+            if text and text.strip():
 
                 context_parts.append(
-                    text
-                )
 
+                    f"""
+SOURCE {index}
+
+FILE:
+{file_name}
+
+CHUNK:
+{chunk_id}
+
+CONTENT:
+{text.strip()}
+"""
+                )
 
         context = "\n\n".join(
             context_parts
         )
 
+        print(
+            f"ASK STEP 3: Context chunks = "
+            f"{len(context_parts)}",
+            flush=True
+        )
 
-        # ----------------------------------------------------
-        # CHECK CONTEXT
-        # ----------------------------------------------------
+        # ====================================================
+        # STEP 9 — CHECK CONTEXT
+        # ====================================================
 
         if not context.strip():
+
+            print(
+                "ASK STEP 4: Context is empty",
+                flush=True
+            )
 
             return jsonify({
 
@@ -406,43 +478,64 @@ def ask():
 
             }), 200
 
+        # ====================================================
+        # STEP 10 — CONTEXT DEBUG
+        # ====================================================
 
-        # ----------------------------------------------------
-        # GENERATE AI ANSWER
-        # ----------------------------------------------------
+        print(
+            f"ASK STEP 4: Context length = "
+            f"{len(context)} characters",
+            flush=True
+        )
+
+        print(
+            "ASK STEP 4: Context preview:",
+            flush=True
+        )
+
+        print(
+            context[:2000],
+            flush=True
+        )
+
+        # ====================================================
+        # STEP 11 — GENERATE GEMINI ANSWER
+        # ====================================================
+
+        print(
+            "ASK STEP 5: Generating Gemini answer",
+            flush=True
+        )
 
         answer = generate_answer(
 
             question=question,
 
             context=context
-
         )
 
+        print(
+            "ASK STEP 6: Gemini answer generated",
+            flush=True
+        )
+
+        print(
+            "ASK ANSWER:",
+            answer,
+            flush=True
+        )
 
         # ====================================================
-        # CALCULATE CONFIDENCE SCORE
-        # ====================================================
-        #
-        # search_service.py already calculates:
-        #
-        # relevance_percentage
-        #
-        # Therefore, use that value instead of converting
-        # ChromaDB distance directly.
-        #
-        # This gives us a retrieval/context relevance score.
+        # STEP 12 — CALCULATE CONFIDENCE SCORE
         # ====================================================
 
         relevance_scores = []
-
 
         for result in search_results:
 
             relevance = result.get(
                 "relevance_percentage"
             )
-
 
             if relevance is not None:
 
@@ -459,67 +552,80 @@ def ask():
 
                     pass
 
-
         if relevance_scores:
 
             confidence_score = (
-                sum(relevance_scores)
+
+                sum(
+                    relevance_scores
+                )
+
                 /
-                len(relevance_scores)
+
+                len(
+                    relevance_scores
+                )
             )
 
         else:
 
             confidence_score = 0.00
 
-
-        # ----------------------------------------------------
-        # KEEP SCORE BETWEEN 0 AND 100
-        # ----------------------------------------------------
+        # ====================================================
+        # LIMIT SCORE
+        # ====================================================
 
         confidence_score = max(
+
             0.00,
+
             min(
                 100.00,
                 confidence_score
             )
         )
 
-
         confidence_score = round(
             confidence_score,
             2
         )
 
+        print(
+            "ASK CONFIDENCE SCORE:",
+            confidence_score,
+            flush=True
+        )
 
-        # ----------------------------------------------------
-        # SAVE AI QUERY
-        # ----------------------------------------------------
+        # ====================================================
+        # STEP 13 — SAVE AI QUERY
+        # ====================================================
 
         ai_query = AIQuery(
 
             user_id=user_id,
 
             question=question
-
         )
-
 
         db.session.add(
             ai_query
         )
 
-
-        # ----------------------------------------------------
-        # GET GENERATED QUERY ID
-        # ----------------------------------------------------
+        # ====================================================
+        # STEP 14 — GENERATE QUERY ID
+        # ====================================================
 
         db.session.flush()
 
+        print(
+            "ASK QUERY ID:",
+            ai_query.id,
+            flush=True
+        )
 
-        # ----------------------------------------------------
-        # SAVE CHAT HISTORY
-        # ----------------------------------------------------
+        # ====================================================
+        # STEP 15 — SAVE CHAT HISTORY
+        # ====================================================
 
         chat_history = ChatHistory(
 
@@ -528,25 +634,32 @@ def ask():
             ai_response=answer,
 
             confidence_score=confidence_score
-
         )
-
 
         db.session.add(
             chat_history
         )
 
-
-        # ----------------------------------------------------
-        # COMMIT DATABASE CHANGES
-        # ----------------------------------------------------
+        # ====================================================
+        # STEP 16 — COMMIT DATABASE
+        # ====================================================
 
         db.session.commit()
 
+        print(
+            f"ASK STEP 7: Saved query ID = "
+            f"{ai_query.id}",
+            flush=True
+        )
 
-        # ----------------------------------------------------
-        # RETURN RESPONSE
-        # ----------------------------------------------------
+        print(
+            "==========================================",
+            flush=True
+        )
+
+        # ====================================================
+        # STEP 17 — RETURN RESPONSE
+        # ====================================================
 
         return jsonify({
 
@@ -567,14 +680,29 @@ def ask():
 
         }), 200
 
-
     # ========================================================
-    # ERROR HANDLING
+    # VALUE ERROR
     # ========================================================
 
     except ValueError as e:
 
         db.session.rollback()
+
+        print(
+            "==========================================",
+            flush=True
+        )
+
+        print(
+            "ASK VALUE ERROR:",
+            repr(e),
+            flush=True
+        )
+
+        print(
+            "==========================================",
+            flush=True
+        )
 
         return jsonify({
 
@@ -583,10 +711,29 @@ def ask():
 
         }), 400
 
+    # ========================================================
+    # GENERAL ERROR
+    # ========================================================
 
     except Exception as e:
 
         db.session.rollback()
+
+        print(
+            "==========================================",
+            flush=True
+        )
+
+        print(
+            "ASK ERROR:",
+            repr(e),
+            flush=True
+        )
+
+        print(
+            "==========================================",
+            flush=True
+        )
 
         return jsonify({
 
